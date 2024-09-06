@@ -20,17 +20,27 @@ k1_held = false
 
 
 function init()
-	nb.voice_count = 1
+	params:add_separator("paratext")
+
+	params:add_option("sequencer", "sequencer",{"keys", "drums"}, 1)
+	params:set_action("sequencer", function(x) sequencer = x end)
+
+	nb.voice_count = 5
 	nb:init()
-	nb:add_param("voice", "Track 1")
+	params:add_group("nb voices", 10)
+	nb:add_param("voice_keys", "Keyboard:")
+	nb:add_param("voice_drum_1", "Drums - Track 1:")
+	nb:add_param("voice_drum_2", "Drums - Track 2:")
+	nb:add_param("voice_drum_3", "Drums - Track 3:")
+	nb:add_param("voice_drum_4", "Drums - Track 4:")
 	nb:add_player_params()
-	
+
 	clock.run(grid_redraw_clock)
-	clock.run(seq_clock)
 	
 	my_lattice = lattice:new{
         auto = true,
-        ppqn = 480
+        ppqn = 480,
+		enabled = true
     }
 	
 	track_keys = my_lattice:new_sprocket{
@@ -62,8 +72,24 @@ function init()
         division = 1,
         enabled = true
     }
-	params_init()
+
+	track_drum_4 = my_lattice:new_sprocket{
+        action = function(x) end,
+        division = 1,
+        enabled = true
+    }
+	
+	my_lattice:start()
+	track_keys:start()
+	track_drum_1:start()
+	track_drum_2:start()
+	track_drum_3:start()
+	track_drum_4:start()
+
 end
+
+
+-- called by postscript after mod is loaded
 
 function FxPostscript_init() 
     if persist == true then
@@ -72,10 +98,18 @@ function FxPostscript_init()
         setup_fx_defaults()
     end
     
-    params:set("voice", 2) -- set this to the number that points to you desired voice
     params:set("fx_postscript_slot", 0) -- seems to need this for insert-mode to take
     params:set("fx_postscript_slot", 4)
-    end
+   
+	-- sets up voices choose numbers that works for your particular nb-voice stack
+	params:set("voice_keys", 18)
+	params:set("voice_drum_1", 2)
+	params:set("voice_drum_2", 3)
+	params:set("voice_drum_3", 4)
+	params:set("voice_drum_4", 5)
+	nb:add_player_params()
+
+end
 
 function setup_fx_defaults()
    params:set("fx_postscript_slot_drywet", 0.4)
@@ -86,15 +120,20 @@ function setup_fx_defaults()
    params:set("fx_postscript_width", 0)
 end
 
-function params_init()
-	--params:add_control("id", "name", controlspec.new(min,max,"lin",step,default,"unit"))
-	--params:set_action("id", function(x)  end)
-	
-	params:add_option("sequencer", "sequencer",{"keys", "drums"}, 1)
-	params:set_action("sequencer", function(x) sequencer = x end)
+
+-- inteface
+
+function redraw()
+	screen.clear()
+	draw_interface()
+	screen.update()
+end
+
+function draw_interface()
 
 end
 
+--[[
 function redraw()
 	screen.clear()
 	draw_logo()
@@ -145,6 +184,8 @@ function draw_param(display_name, name)
 	screen.level(3)
 	screen.text(name)
 end
+]]--
+
 
 function grid_redraw_clock()
 	while true do
@@ -174,6 +215,8 @@ function grid_draw_drums()
     
 end
 
+
+-- hw interaction
 	
 function g.key(x, y, z)
 
