@@ -6,33 +6,48 @@
 --   mods: Nb, Fx, Fx_Postscript
 --        font: 04B_03, 8p
 --      screen: b/w, 128x64p
- 
+--
+--
+--
+--
+--
+--
+--
+--
+--
+--
 -- ---- ---- ----  ---- ---- ---- 
 
 g = grid.connect()
 
+include("lib/interface")
+
 nb = include("nb/lib/nb")
 lattice = require("lattice")
 
-
-local persist = true
-local k1_held = false
-local feedback_mod = ""
-local send_mod = ""
+persist = true
+k1_held = false
+k2_held = false
+k3_held = false
+feedback_mod = ""
+send_mod = ""
 
 function init()
-	params:add_separator("preface")
+	params:add_separator("paratext: sequencers")
 	params:add_option("sequencer", "sequencer",{"keys", "drums"}, 1)
-	params:set_action("sequencer", function(x) sequencer = x end)
-	params:add_separator("dramatis personae")
+	params:set_action("sequencer", function(x) sequencer = params:string("sequencer") end)
+	params:add_option("crow", "crow", {"off", "keys: cv/gate 1+2", "drum: gates 1-4"}, 1)
+
+
+	params:add_separator("paratext: voices")
 	
 	nb.voice_count = 5
 	nb:init()
-	nb:add_param("voice_keys", "soloist")
-	nb:add_param("voice_drum_1", "1st percussion")
-	nb:add_param("voice_drum_2", "2nd percussion")
-	nb:add_param("voice_drum_3", "3rd percussion")
-	nb:add_param("voice_drum_4", "4th percussion")
+	nb:add_param("voice_keys", "keys")
+	nb:add_param("voice_drum_1", "drums - track 1")
+	nb:add_param("voice_drum_2", "drums - track 2")
+	nb:add_param("voice_drum_3", "drums - track 3")
+	nb:add_param("voice_drum_4", "drums - track 4")
 	nb:add_player_params()
 
 
@@ -46,7 +61,7 @@ function init()
     }
 	
 	track_keys = my_lattice:new_sprocket{
-        action = function(x) end,
+        action = function(t) end,
         division = 1,
         enabled = true
     }
@@ -130,142 +145,9 @@ function modulo(num, mod)
 end
 
 
--- inteface
-function draw_interface()
-	local wordlist_1 = {
-		"Paratext, Volume 1",
-		{"On Time", "fx_postscript_time"},
-		{"On Recursion", "fx_postscript_feedback"},
-		{"On Delegation", "fx_postscript_send"},
-		{"", "i"},
-		{"Unmentionable", "ii"}
-	}
-
-	local sequencer
-	if params:get("sequencer") == 1 then 
-		sequencer = "On Melody"
-	else
-		sequencer = "On Rythm"
-	end
-
-	local wordlist_2 = {
-		"Paratext, Volume 2",
-		{"On Water", "fx_postscript_slot_drywet"},
-		{"On Sharpness", "fx_postscript_lp"},
-		{"On Distance", "fx_postscript_width"},
-		{"", "i"},
-		{sequencer, "ii"}
-	}
-	
-	screen.font_face(1)
-	screen.font_size(8)
-
-	local leading = {8, 16, 8, 8, 8, 8}
-	local margin = 0
-	local l_edge = margin
-	local r_edge = 128 - margin
-	local justify = l
-
-	local function write_line(line, w1, w2, indent, dots)
-		local w1_l = screen.text_extents(w1)
-		local w2_l = screen.text_extents(w2)
-		local sum_l = 0
-		
-		for n = 1, line do sum_l = sum_l + leading[n] end
-		
-		screen.move(l_edge + indent, sum_l)
-		screen.text(w1)
-		screen.move(r_edge, sum_l)
-		screen.text_right(w2)		
-		
-		if dots then
-			screen.level(3)
-			screen.move(w1_l + margin + 3, sum_l)
-			screen.line(128 - w2_l - margin - 1, sum_l)
-			screen.stroke()
-			screen.level(15)
-		end
-	end
-	
-	if k1_held == false then
-		write_line(
-			1,
-			wordlist_1[1],
-			"",
-			0,
-			false
-		)
-
-		write_line(
-			2,
-			wordlist_1[2][1],
-			math.floor(params:get((wordlist_1[2][2])) * 1000),
-			2,
-			true
-		)
-
-		write_line(
-			3,
-			wordlist_1[3][1],
-			math.floor(params:get(wordlist_1[3][2])),
-			2,
-			true
-		)
-
-		write_line(
-			4,
-			wordlist_1[4][1],
-			math.floor(params:get(wordlist_1[4][2])),
-			2,
-			true
-		)
-
-	elseif k1_held == true then
-		write_line(
-			1,
-			wordlist_2[1],
-			"",
-			0,
-			false
-		)
-
-		write_line(
-			2,
-			wordlist_2[2][1],
-			math.floor(params:get((wordlist_2[2][2])) * 100),
-			2,
-			true
-		)
-
-		write_line(
-			3,
-			wordlist_2[3][1],
-			math.floor(params:get(wordlist_2[3][2])),
-			2,
-			true
-		)
-
-		write_line(
-			4,
-			wordlist_2[4][1],
-			math.floor(params:get(wordlist_2[4][2])),
-			2,
-			true
-		)
-		
-		write_line(
-			6,
-			wordlist_2[6][1],
-			wordlist_2[6][2],
-			2,
-			true
-		)
-	end
-end
-
 function redraw()
 	screen.clear()
-	draw_interface()
+	draw_interface() -- lib/interface
 	screen.update()
 end
 
@@ -332,12 +214,14 @@ end
 
 
 function key(n,z)
-	if n == 1 then
-		if z == 1 then
-			k1_held = true
-		else
-			k1_held = false
-		end
+	if z == 1 then
+		if n == 1 then k1_held = true end 
+		if n == 2 then k2_held = true end
+		if n == 3 then k3_held = true end
+	else
+		if n == 1 then k1_held = false end
+		if n == 2 then k2_held = false end
+		if n == 3 then k3_held = false end
 	end
 	
 	if k1_held == false then
@@ -366,9 +250,7 @@ function key(n,z)
 	elseif k1_held == true then
 		if n == 2 then
 			if z == 1 then
-				
-			else
-				
+								
 			end
 		end
 		
@@ -409,13 +291,6 @@ function enc(n,d)
 end
 
 -- Sequencers: Common
-
-function seq_clock()
-    
-end
-
-
-
 
 function cleanup()
 	if persist == true then
