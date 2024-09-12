@@ -4,33 +4,83 @@
 --      @imminent gloom 2024
 -- 
 --   mods: Nb, Fx, Fx_Postscript
---        font: 04B_03, 8p
+--       font: norns.ttf, 8p
 --      screen: b/w, 128x64p
 --
 --
+--            PREFACE
+--
+-- PARATEXT is a collection of 
+-- tools that surround a text; a
+-- live input or a voice provided
+-- by n.b. et al.
+--
+-- Preceding the text are two
+-- sequencers, one based on 
+-- earthsea, another on a faded
+-- memory of a borrowed 626.
+--
+-- An adaption of delayyyyyyyy
+-- acts as a postscript.
+--
+-- Scripts have a suprising
+-- number of paratextual layers:
+--
+--  + a post on lines
+--  + a github repository
+--  + a manual
+--  + demonstration videos
+--  + an entry in maiden
+--  + a title in a list
+--  + an introductory text
+--
+-- This seems to closely mirror
+-- the structure of ease
+-- through complexity found
+-- througout the monome
+-- ecosystem. And, I think, it
+-- invites exploration through
+-- addition and metaphor. 
 --
 --
+--          NOTES ON USE
 --
+-- There are two pages, Volumes
+-- 1 and 2. Encoders change the
+-- delay, each button can be
+-- held. Button one shifts to
+-- Volume 2, which is much the
+-- same as the fisrt, exept the
+-- buttons reset and switch
+-- between the sequencers.
 --
+--       ACKNOWLEDGEMENTS
 --
---
---
---
+--   cfdrake for delayyyyyyyy
+--      monome for objects
+--     whimsical raps for JF
+--  sixolet for fx and n.b. et al.
+--         zbs for oilcan
+
 -- ---- ---- ----  ---- ---- ---- 
+
 
 g = grid.connect()
 
 include("lib/interface")
+include("lib/keys")
+include("lib/drums")
 
 nb = include("nb/lib/nb")
+
 lattice = require("lattice")
+pattern_time = require ("pattern_time")
+
 
 persist = true
 k1_held = false
 k2_held = false
 k3_held = false
-feedback_mod = ""
-send_mod = ""
 
 function init()
 	params:add_separator("paratext: sequencers")
@@ -38,9 +88,7 @@ function init()
 	params:set_action("sequencer", function(x) sequencer = params:string("sequencer") end)
 	params:add_option("crow", "crow", {"off", "keys: cv/gate 1+2", "drum: gates 1-4"}, 1)
 
-
 	params:add_separator("paratext: voices")
-	
 	nb.voice_count = 5
 	nb:init()
 	nb:add_param("voice_keys", "keys")
@@ -50,64 +98,55 @@ function init()
 	nb:add_param("voice_drum_4", "drums - track 4")
 	nb:add_player_params()
 
+	setup_lattice()
+
+	keys_init()
+	drums_init()
+
+	pattern = pattern_time.new()
 
 	clock.run(grid_redraw_clock)
-	
+end
 
+function setup_lattice()
 	my_lattice = lattice:new{
         auto = true,
         ppqn = 480,
 		enabled = true
     }
 	
-	track_keys = my_lattice:new_sprocket{
-        action = function(t) end,
+	sprocket_drum_1 = my_lattice:new_sprocket{
+        action = t_drum_1(t),
         division = 1,
         enabled = true
     }
 	
-	track_drum_1 = my_lattice:new_sprocket{
-        action = function(x) end,
-        division = 1,
-        enabled = true
-    }
-	
-	track_drum_2 = my_lattice:new_sprocket{
-        action = function(x) end,
+	sprocket_drum_2 = my_lattice:new_sprocket{
+        action = t_drum_2(t),
         division = 1,
         enabled = true
     }
     
-    track_drum_3 = my_lattice:new_sprocket{
-        action = function(x) end,
+    sprocket_drum_3 = my_lattice:new_sprocket{
+        action = t_drum_3(t),
         division = 1,
         enabled = true
     }
     
-    track_drum_3 = my_lattice:new_sprocket{
-        action = function(x) end,
+    sprocket_drum_4 = my_lattice:new_sprocket{
+        action = t_drum_4(t),
         division = 1,
         enabled = true
     }
 
-	track_drum_4 = my_lattice:new_sprocket{
-        action = function(x) end,
-        division = 1,
-        enabled = true
-    }
-	
 	my_lattice:start()
-	track_keys:start()
-	track_drum_1:start()
-	track_drum_2:start()
-	track_drum_3:start()
-	track_drum_4:start()
-
+	sprocket_drum_1:start()
+	sprocket_drum_2:start()
+	sprocket_drum_3:start()
+	sprocket_drum_4:start()
 end
 
-
--- called by postscript after mod is loaded
-
+-- called by fx_postscript after loading so we know it is safe to laod the pset and complete init
 function FxPostscript_init() 
     if persist == true then
   	    params:read("/home/we/dust/data/paratext/state.pset")
@@ -117,15 +156,7 @@ function FxPostscript_init()
     
     params:set("fx_postscript_slot", 0) -- seems to need this for insert-mode to take
     params:set("fx_postscript_slot", 4) -- sets postscript as insert
-
-	-- sets up voices choose numbers that works for your particular nb-voice stack
-	params:set("voice_keys", 18)
-	params:set("voice_drum_1", 2)
-	params:set("voice_drum_2", 3)
-	params:set("voice_drum_3", 4)
-	params:set("voice_drum_4", 5)
-	nb:add_player_params()
-
+	params:bang()
 end
 
 function setup_fx_defaults()
@@ -138,22 +169,23 @@ function setup_fx_defaults()
    params:set("fx_postscript_width", 0)
 end
 
--- misc
+-- utilities
 function modulo(num, mod)
 	-- % to index 1-based lists
 	return ((num - 1) % mod) + 1
 end
 
-
+-- draw interface, see /lib/interface.lua
 function redraw()
 	screen.clear()
-	draw_interface() -- lib/interface
+	draw_interface()
 	screen.update()
 end
 
+-- draw grid using active sequencer, see /lib/keys.lua or /lib/drums.lua
 function grid_redraw_clock()
 	while true do
-		clock.sleep(1/30)
+		clock.sleep(1/60) -- fps
 		if grid_dirty then
 			grid_redraw()
 			grid_dirty = false
@@ -171,48 +203,16 @@ function grid_redraw()
 	g:refresh()
 end
 
-function grid_draw_keys()
-    
-end
-
-function grid_draw_drums()
-    
-end
-
-
--- hw interaction
-	
+-- send keypresses to active sequencer
 function g.key(x, y, z)
-
-    if sequencer == "keys" then
+	if sequencer == "keys" then
         grid_press_keys(x, y, z)
-    else
+    elseif sequencer == "drums" then
         grid_press_drums(x, y, z)    
     end
-
---[[
-local note = 24
-    note = note + x
-    note = note + 5 * (8 - y)
-    local player = params:lookup_param("voice"):get_player()
-    if z == 1 then
-        player:note_on(note, 1)
-    else
-        player:note_off(note)
-    end
-]]--    
-
 end
 
-function grid_press_keys(x, y, z)
-    
-end
-
-function grid_press_drums(x, y, z)
-    
-end
-
-
+-- keys control fx and select sequencer
 function key(n,z)
 	if z == 1 then
 		if n == 1 then k1_held = true end 
@@ -229,10 +229,8 @@ function key(n,z)
 			if z == 1 then
 				prev_feedback = params:get("fx_postscript_feedback")
 				params:set("fx_postscript_feedback", prev_feedback * 0.75)
-				feedback_mod = "Active"	
 			else
 				params:set("fx_postscript_feedback", prev_feedback)
-				feedback_mod = ""
 			end
 		end
 		
@@ -240,10 +238,8 @@ function key(n,z)
 			if z == 1 then
 				prev_send = params:get("fx_postscript_send")
 				params:set("fx_postscript_send", 100)
-				send_mod = "Active"
 			else
 				params:set("fx_postscript_send", prev_send)
-				send_mod = ""
 			end
 		end
 
@@ -257,7 +253,8 @@ function key(n,z)
 		if n == 3 then
 			if z == 1 then
 				local val = params:get("sequencer")
-				val = modulo(val + 1, 2)
+				val = ((val - 1) % 2) + 1
+				--val = modulo(val + 1, 2)
 				params:set("sequencer", val)
 			end				
 		end
@@ -266,7 +263,7 @@ function key(n,z)
 	redraw()
 end
 
-
+-- encoders set fx prarmeters
 function enc(n,d)
 	if k1_held then
 		if n == 1 then 
@@ -290,8 +287,7 @@ function enc(n,d)
 	redraw()
 end
 
--- Sequencers: Common
-
+-- pps
 function cleanup()
 	if persist == true then
   	    params:write("/home/we/dust/data/paratext/state.pset")
