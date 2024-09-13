@@ -5,12 +5,12 @@ pattern_time = require ("pattern_time")
 
 local grid_held = {}
 local playing_notes = {}
+local playing_xy = {}
 local transpose = 0
 local note
 local arm = false
 local loop = false
 local arp = false
-
 
 function keys_init()
 	p = pattern_time.new()
@@ -27,33 +27,61 @@ function p_record(x, y, z, note)
 	p:watch(rec)
 end
 
-local function stop()
+function stop_keys()
 	for n = 1, #playing_notes do
-		player = params:lookup_param("voice_keys"):get_player()
-		player:note_off(playing_notes[n])
+		play_note(playing_notes[n], 0)
 	end
+	for n = 1, #playing_xy do
+		g:led(playing_xy[n][1], playing_xy[n][2], 0)
+	end
+	playing_notes = {}
+	playing_xy = {}
+	grid_dirty = true
 end
 
-local function add_playing()
+function keys_panic()
+	player = params:lookup_param("voice_keys"):get_player()
+	player:stop_all()
+end
+
+function add_playing()
 	for n = 1, #playing_notes do
 		play_note(n, 1)
 	end
 end
 
 function p_execute(r)
-	play_note(r.note, r.state)
+	xy_to_note(r.x, r.y)
+	play_note(note, r.state)
+	
+	if r.state == 1 then
+		table.insert(playing_xy, {r.x, r.y})
+	else
+		for i, v in pairs(playing_xy) do
+			if v[1] == r.x and v[2] == r.y then table.remove(playing_xy, i) end
+		end
+	end
+
+
+	grid_dirty = true
+	
+	--[[
 	if loop == false then
 		if r.index == p.count then
 			p:stop()
-			stop()
+			stop_keys()
 		end
 	end
+	]]--
 end
+
+
 
 function xy_to_note(x, y)
     note = 24 + transpose
     note = note + x
 	note = note + 5 * (8 - y)
+	return note
 end
 
 function play_note(note, z)
@@ -73,8 +101,10 @@ end
 
 function grid_press_keys(x, y, z)
 
-	--play notes when keys in col 2-16 are pressed
-	if y > 0 and x > 1 then
+	--play notes when keys except 1,1 are pressed
+	if x == 1 and y == 1 then
+
+	else
         xy_to_note(x, y)
         play_note(note, z)
 		p_record(x, y, z, note)
@@ -86,7 +116,7 @@ function grid_press_keys(x, y, z)
 	else
 		for i, v in pairs(grid_held) do
 			if v[1] == x and v[2] == y then table.remove(grid_held, i) end
-		end	   
+		end
 	end
 	
 	-- record, play, stop and erase pattern
@@ -96,7 +126,7 @@ function grid_press_keys(x, y, z)
 			clock.sleep(0.5)
 			p:rec_stop()
 			p:stop()
-			stop()
+			stop_keys()
 			p:clear()
 			p_cleared = true
 			grid_dirty = true
@@ -114,7 +144,7 @@ function grid_press_keys(x, y, z)
 				p:start()
 			elseif p.play == 1 then -- playing; stop
 				p:stop()
-				stop()
+				stop_keys()
 			elseif p.play == 0 then -- stopped; play
 				p:start()
 			end
@@ -124,7 +154,16 @@ function grid_press_keys(x, y, z)
 
 	end
 
-	-- toggle looping playback
+	-- arm recording
+	if x == 1 and y == 3 and z == 1 then
+		if arm == true then 
+			arm = false
+		else
+			arm = true
+		end
+	end
+
+	-- loop playback
 	if x == 1 and y == 4 and z == 1 then
 		if loop == true then 
 			loop = false
@@ -150,10 +189,11 @@ function grid_draw_keys()
 		g:led(grid_held[n][1], grid_held[n][2], 15)
 	end
 
-	-- light up as pattern plays
-	--for n = 1, #notes_played do
-	--	g:led(notes_played[n][1], notes_played[n][2], 10)
-	--end
+	-- light up held keys
+	for n = 1, #playing_xy do
+		g:led(playing_xy[n][1], playing_xy[n][2], 10)
+	end
+	
 
 	-- record button
 	if p.rec == 1 then
@@ -166,6 +206,11 @@ function grid_draw_keys()
 		g:led(1, 1, 0)
 	end
 	
+	-- arm, button
+	--if arm == true then g:led(1, 3, 15) else g:led(1, 3, 0) end
+
 	-- loop button
-	if loop == true then g:led(1, 4, 15) else g:led(1, 4, 0) end
+	--if loop == true then g:led(1, 4, 15) else g:led(1, 4, 0) end
+
+	
 end

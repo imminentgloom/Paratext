@@ -87,7 +87,7 @@ function init()
 	params:add_option("sequencer", "sequencer",{"keys", "drums"}, 1)
 	params:set_action("sequencer", function(x) sequencer = params:string("sequencer") end)
 	params:add_option("crow", "crow", {"off", "keys: cv/gate 1+2", "drum: gates 1-4"}, 1)
-
+	
 	params:add_separator("paratext: voices")
 	nb.voice_count = 5
 	nb:init()
@@ -105,7 +105,7 @@ function init()
 
 	pattern = pattern_time.new()
 
-	clock.run(grid_redraw_clock)
+	g_clk = clock.run(grid_redraw_clock)
 end
 
 function setup_lattice()
@@ -149,6 +149,7 @@ end
 -- called by fx_postscript after loading so we know it is safe to laod the pset and complete init
 function FxPostscript_init() 
     if persist == true then
+		nb:stop_all()
   	    params:read("/home/we/dust/data/paratext/state.pset")
     else
         setup_fx_defaults()
@@ -156,6 +157,7 @@ function FxPostscript_init()
     
     params:set("fx_postscript_slot", 0) -- seems to need this for insert-mode to take
     params:set("fx_postscript_slot", 4) -- sets postscript as insert
+	params:set("fx_postscript_slot_drywet", 0.4)
 	params:bang()
 end
 
@@ -287,8 +289,15 @@ function enc(n,d)
 	redraw()
 end
 
+-- oh shit!
+function nb_panic()
+	nb:stop_all()
+end
+
 -- pps
 function cleanup()
+	stop_keys()
+	stop_drums()
 	if persist == true then
   	    params:write("/home/we/dust/data/paratext/state.pset")
     end

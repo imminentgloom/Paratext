@@ -24,6 +24,10 @@ function t_drum_4()
 
 end
 
+function stop_drums()
+
+end
+
 function grid_draw_drums()
     
 end
